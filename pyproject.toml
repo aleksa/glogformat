@@ -1,0 +1,105 @@
+[project]
+name = "glogformat"
+version = "0.1.0"
+description = "A Python logging formatter implementing Google's glog format with microsecond precision and terminal color support."
+authors = [{name = "Aleksandar Veselinovic", email = "aleksa@users.noreply.github.com"}]
+readme = "README.md"
+license = "MIT"
+keywords = ["glog", "logging", "formatter", "python", "terminal", "colors"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+]
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+dev = [
+    "black>=24.0",
+    "isort>=5.13",
+    "pylint>=3.0",
+    "mypy>=1.11",
+    "build>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/aleksa/glogformat"
+Documentation = "https://github.com/aleksa/glogformat"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+]
+
+[tool.coverage.run]
+source = ["glogformat"]
+omit = ["tests/*"]
+
+[tool.black]
+line-length = 79
+target-version = ["py310", "py311", "py312", "py313", "py314"]
+
+[tool.isort]
+profile = "black"
+line_length = 79
+force_single_line = true
+force_sort_within_sections = true
+
+[tool.pylint.main]
+py-version = "3.10"
+ignore-paths = [
+    "^.*/\\..*$",  # Hidden files/directories
+]
+
+[tool.pylint.format]
+max-line-length = 79
+
+[tool.pylint.messages_control]
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-few-public-methods",
+    "too-many-arguments",
+    "too-many-locals",
+    "too-many-branches",
+    "too-many-statements",
+    "line-too-long",  # Handled by black
+]
+
+[tool.pylint.basic]
+good-names = ["i", "j", "k", "ex", "f", "e", "dt", "s", "h", "t", "tz"]
+
+[tool.pylint.design]
+max-attributes = 10
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+strict_equality = true
