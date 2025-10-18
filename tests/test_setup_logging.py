@@ -19,13 +19,13 @@ from glogformat import setup_stderr_logging
 class TestSetupStderrLogging(unittest.TestCase):
     """Test cases for setup_stderr_logging function."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         """Set up test fixtures."""
         # Save original handlers
         self.original_handlers = logging.root.handlers[:]
         self.original_level = logging.root.level
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         """Clean up test fixtures."""
         # Restore original state
         logging.root.handlers = self.original_handlers
@@ -36,77 +36,87 @@ class TestSetupStderrLogging(unittest.TestCase):
             if key in os.environ:
                 del os.environ[key]
 
-    def test_basic_setup(self):
+    def test_basic_setup(self) -> None:
         """Test basic stderr logging setup."""
-        logger = setup_stderr_logging(logging.INFO)
+        logger: logging.Logger = setup_stderr_logging(logging.INFO)
 
         self.assertEqual(logger, logging.root)
         self.assertEqual(logger.level, logging.INFO)
         self.assertGreater(len(logger.handlers), 0)
 
-    def test_default_level_from_env(self):
+    def test_default_level_from_env(self) -> None:
         """Test that LOG_LEVEL environment variable sets default level."""
         os.environ["LOG_LEVEL"] = "DEBUG"
-        logger = setup_stderr_logging()
+        logger: logging.Logger = setup_stderr_logging()
 
         self.assertEqual(logger.level, logging.DEBUG)
 
-    def test_explicit_level_overrides_env(self):
+    def test_explicit_level_overrides_env(self) -> None:
         """Test that explicit level overrides LOG_LEVEL env var."""
         os.environ["LOG_LEVEL"] = "DEBUG"
-        logger = setup_stderr_logging(logging.WARNING)
+        logger: logging.Logger = setup_stderr_logging(logging.WARNING)
 
         self.assertEqual(logger.level, logging.WARNING)
 
-    def test_invalid_env_log_level_defaults_to_info(self):
+    def test_invalid_env_log_level_defaults_to_info(self) -> None:
         """Test that invalid LOG_LEVEL defaults to INFO."""
         os.environ["LOG_LEVEL"] = "INVALID_LEVEL"
 
         with patch("glogformat._safe_stderr_write") as mock_write:
-            logger = setup_stderr_logging()
+            logger: logging.Logger = setup_stderr_logging()
 
             self.assertEqual(logger.level, logging.INFO)
             # Should have warned about invalid level
             mock_write.assert_called()
-            call_args = str(mock_write.call_args)
+            call_args: str = str(mock_write.call_args)
             self.assertIn("Invalid LOG_LEVEL", call_args)
 
-    def test_clear_handlers(self):
+    def test_clear_handlers(self) -> None:
         """Test that clear_handlers removes existing handlers."""
         # Add a dummy handler
-        dummy_handler = logging.NullHandler()
+        dummy_handler: logging.NullHandler = logging.NullHandler()
         logging.root.addHandler(dummy_handler)
 
-        initial_count = len(logging.root.handlers)
-        logger = setup_stderr_logging(logging.INFO, clear_handlers=True)
+        initial_count: int = len(logging.root.handlers)
+        logger: logging.Logger = setup_stderr_logging(
+            logging.INFO, clear_handlers=True
+        )
 
         # Old handler should be removed
         self.assertNotIn(dummy_handler, logger.handlers)
+        # New handler(s) should be added
+        self.assertGreater(len(logger.handlers), 0)
+        # Should not accumulate handlers (cleared first)
+        self.assertLessEqual(len(logger.handlers), initial_count)
 
-    def test_no_clear_handlers_warning(self):
+    def test_no_clear_handlers_warning(self) -> None:
         """Test warning when not clearing existing handlers."""
         # Add a dummy handler
-        dummy_handler = logging.NullHandler()
+        dummy_handler: logging.NullHandler = logging.NullHandler()
         logging.root.addHandler(dummy_handler)
 
         with patch("glogformat._safe_stderr_write") as mock_write:
-            logger = setup_stderr_logging(logging.INFO, clear_handlers=False)
+            logger: logging.Logger = setup_stderr_logging(
+                logging.INFO, clear_handlers=False
+            )
 
             # Should have warned about duplicate logs
             mock_write.assert_called()
-            call_args = str(mock_write.call_args)
+            call_args: str = str(mock_write.call_args)
             self.assertIn("duplicate logs", call_args)
 
-    def test_color_enabled_for_tty(self):
+    def test_color_enabled_for_tty(self) -> None:
         """Test that color formatter is used when stderr is a TTY."""
         with patch("sys.stderr") as mock_stderr:
             mock_stderr.isatty.return_value = True
             mock_stderr.fileno.return_value = 2
 
-            logger = setup_stderr_logging(logging.INFO, color=True)
+            logger: logging.Logger = setup_stderr_logging(
+                logging.INFO, color=True
+            )
 
             # Find the StreamHandler
-            stream_handler = None
+            stream_handler: logging.StreamHandler | None = None
             for handler in logger.handlers:
                 if isinstance(handler, logging.StreamHandler):
                     stream_handler = handler
@@ -115,16 +125,18 @@ class TestSetupStderrLogging(unittest.TestCase):
             self.assertIsNotNone(stream_handler)
             self.assertIsInstance(stream_handler.formatter, ColorGlogFormatter)
 
-    def test_color_disabled_for_non_tty(self):
+    def test_color_disabled_for_non_tty(self) -> None:
         """Test that plain formatter is used when stderr is not a TTY."""
         with patch("sys.stderr") as mock_stderr:
             mock_stderr.isatty.return_value = False
             mock_stderr.fileno.return_value = 2
 
-            logger = setup_stderr_logging(logging.INFO, color=True)
+            logger: logging.Logger = setup_stderr_logging(
+                logging.INFO, color=True
+            )
 
             # Find the StreamHandler
-            stream_handler = None
+            stream_handler: logging.StreamHandler | None = None
             for handler in logger.handlers:
                 if isinstance(handler, logging.StreamHandler):
                     stream_handler = handler
@@ -136,7 +148,7 @@ class TestSetupStderrLogging(unittest.TestCase):
                 stream_handler.formatter, ColorGlogFormatter
             )
 
-    def test_log_color_env_enable(self):
+    def test_log_color_env_enable(self) -> None:
         """Test LOG_COLOR environment variable enables color."""
         for value in ["1", "true", "yes"]:
             with self.subTest(value=value):
@@ -146,10 +158,12 @@ class TestSetupStderrLogging(unittest.TestCase):
                     mock_stderr.isatty.return_value = True
                     mock_stderr.fileno.return_value = 2
 
-                    logger = setup_stderr_logging(logging.INFO, color=False)
+                    logger: logging.Logger = setup_stderr_logging(
+                        logging.INFO, color=False
+                    )
 
                     # Find the StreamHandler
-                    stream_handler = None
+                    stream_handler: logging.StreamHandler | None = None
                     for handler in logger.handlers:
                         if isinstance(handler, logging.StreamHandler):
                             stream_handler = handler
@@ -163,7 +177,7 @@ class TestSetupStderrLogging(unittest.TestCase):
                 del os.environ["LOG_COLOR"]
                 logging.root.handlers.clear()
 
-    def test_log_color_env_disable(self):
+    def test_log_color_env_disable(self) -> None:
         """Test LOG_COLOR environment variable disables color."""
         for value in ["0", "false", "no"]:
             with self.subTest(value=value):
@@ -173,10 +187,12 @@ class TestSetupStderrLogging(unittest.TestCase):
                     mock_stderr.isatty.return_value = True
                     mock_stderr.fileno.return_value = 2
 
-                    logger = setup_stderr_logging(logging.INFO, color=True)
+                    logger: logging.Logger = setup_stderr_logging(
+                        logging.INFO, color=True
+                    )
 
                     # Find the StreamHandler
-                    stream_handler = None
+                    stream_handler: logging.StreamHandler | None = None
                     for handler in logger.handlers:
                         if isinstance(handler, logging.StreamHandler):
                             stream_handler = handler
@@ -190,7 +206,7 @@ class TestSetupStderrLogging(unittest.TestCase):
                 del os.environ["LOG_COLOR"]
                 logging.root.handlers.clear()
 
-    def test_invalid_log_color_env(self):
+    def test_invalid_log_color_env(self) -> None:
         """Test invalid LOG_COLOR environment variable."""
         os.environ["LOG_COLOR"] = "maybe"
 
@@ -203,21 +219,21 @@ class TestSetupStderrLogging(unittest.TestCase):
 
                 # Should warn about invalid value
                 mock_write.assert_called()
-                call_args = str(mock_write.call_args)
+                call_args: str = str(mock_write.call_args)
                 self.assertIn("Invalid LOG_COLOR", call_args)
 
-    def test_file_logging(self):
+    def test_file_logging(self) -> None:
         """Test logging to file."""
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            log_file = f.name
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as fh:
+            log_file: str = fh.name
 
         try:
-            logger = setup_stderr_logging(
+            logger: logging.Logger = setup_stderr_logging(
                 logging.INFO, log_file=log_file, max_bytes=1000, backup_count=3
             )
 
             # Should have file handler
-            file_handlers = [
+            file_handlers: list[logging.handlers.RotatingFileHandler] = [
                 h
                 for h in logger.handlers
                 if isinstance(h, logging.handlers.RotatingFileHandler)
@@ -225,32 +241,31 @@ class TestSetupStderrLogging(unittest.TestCase):
             self.assertGreater(len(file_handlers), 0)
 
             # Test logging to file
-            test_logger = logging.getLogger("test_file")
+            test_logger: logging.Logger = logging.getLogger("test_file")
             test_logger.info("Test file message")
 
             # Read file content
-            with open(log_file, "r") as f:
-                content = f.read()
+            content: str = pathlib.Path(log_file).read_text()
 
             self.assertIn("Test file message", content)
         finally:
             # Clean up
-            log_path = pathlib.Path(log_file)
+            log_path: pathlib.Path = pathlib.Path(log_file)
             if log_path.exists():
                 log_path.unlink()
 
-    def test_file_logging_with_rotation_params(self):
+    def test_file_logging_with_rotation_params(self) -> None:
         """Test that file rotation parameters are set correctly."""
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            log_file = f.name
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as fh:
+            log_file: str = fh.name
 
         try:
-            logger = setup_stderr_logging(
+            logger: logging.Logger = setup_stderr_logging(
                 logging.INFO, log_file=log_file, max_bytes=5000, backup_count=7
             )
 
             # Find rotating file handler
-            file_handler = None
+            file_handler: logging.handlers.RotatingFileHandler | None = None
             for h in logger.handlers:
                 if isinstance(h, logging.handlers.RotatingFileHandler):
                     file_handler = h
@@ -260,27 +275,29 @@ class TestSetupStderrLogging(unittest.TestCase):
             self.assertEqual(file_handler.maxBytes, 5000)
             self.assertEqual(file_handler.backupCount, 7)
         finally:
-            log_path = pathlib.Path(log_file)
+            log_path: pathlib.Path = pathlib.Path(log_file)
             if log_path.exists():
                 log_path.unlink()
 
-    def test_invalid_log_file(self):
+    def test_invalid_log_file(self) -> None:
         """Test handling of invalid log file path."""
         with patch("glogformat._safe_stderr_write") as mock_write:
             # Try to create file in non-existent directory
-            logger = setup_stderr_logging(
+            logger: logging.Logger = setup_stderr_logging(
                 logging.INFO, log_file="/nonexistent/directory/file.log"
             )
 
             # Should have warned about failure
             mock_write.assert_called()
-            call_args = str(mock_write.call_args)
+            call_args: str = str(mock_write.call_args)
             self.assertIn("Failed to create log file", call_args)
 
-    def test_empty_log_file_string(self):
+    def test_empty_log_file_string(self) -> None:
         """Test handling of empty log file string."""
         with patch("glogformat._safe_stderr_write") as mock_write:
-            logger = setup_stderr_logging(logging.INFO, log_file="   ")
+            logger: logging.Logger = setup_stderr_logging(
+                logging.INFO, log_file="   "
+            )
 
             # Should have warned about invalid file
             self.assertTrue(
@@ -295,73 +312,68 @@ class TestSetupStderrLogging(unittest.TestCase):
                 == 0
             )
 
-    def test_missing_stderr(self):
+    def test_missing_stderr(self) -> None:
         """Test handling when stderr is None."""
-        original_stderr = sys.stderr
-        try:
-            sys.stderr = None
-
-            logger = setup_stderr_logging(logging.INFO)
+        with patch.object(sys, "stderr", None):
+            logger: logging.Logger = setup_stderr_logging(logging.INFO)
 
             # Should add NullHandler
-            has_null_handler = any(
+            has_null_handler: bool = any(
                 isinstance(h, logging.NullHandler) for h in logger.handlers
             )
             self.assertTrue(has_null_handler)
-        finally:
-            sys.stderr = original_stderr
 
-    def test_stderr_without_fileno(self):
+    def test_stderr_without_fileno(self) -> None:
         """Test handling when stderr has no fileno method."""
-        original_stderr = sys.stderr
-        try:
-            # Create mock stderr without fileno
-            mock_stderr = Mock()
-            del mock_stderr.fileno
-            sys.stderr = mock_stderr
+        # Create mock stderr without fileno
+        mock_stderr: Mock = Mock()
+        del mock_stderr.fileno
 
-            logger = setup_stderr_logging(logging.INFO)
+        with patch.object(sys, "stderr", mock_stderr):
+            logger: logging.Logger = setup_stderr_logging(logging.INFO)
 
             # Should add NullHandler or handle gracefully
             self.assertIsNotNone(logger)
-        finally:
-            sys.stderr = original_stderr
 
-    def test_utc_timestamps(self):
+    def test_utc_timestamps(self) -> None:
         """Test UTC timestamp mode."""
-        logger = setup_stderr_logging(logging.INFO, use_utc=True)
+        logger: logging.Logger = setup_stderr_logging(
+            logging.INFO, use_utc=True
+        )
 
         # Check that handlers have UTC formatters
         for handler in logger.handlers:
             if hasattr(handler.formatter, "use_utc"):
                 self.assertTrue(handler.formatter.use_utc)
 
-    def test_local_timestamps(self):
+    def test_local_timestamps(self) -> None:
         """Test local timestamp mode (default)."""
-        logger = setup_stderr_logging(logging.INFO, use_utc=False)
+        logger: logging.Logger = setup_stderr_logging(
+            logging.INFO, use_utc=False
+        )
 
         # Check that handlers have local time formatters
         for handler in logger.handlers:
             if hasattr(handler.formatter, "use_utc"):
                 self.assertFalse(handler.formatter.use_utc)
 
-    def test_both_stderr_and_file_logging(self):
+    def test_both_stderr_and_file_logging(self) -> None:
         """Test that both stderr and file logging work together."""
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            log_file = f.name
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as fh:
+            log_file: str = fh.name
 
         try:
-            logger = setup_stderr_logging(
+            logger: logging.Logger = setup_stderr_logging(
                 logging.INFO, color=False, log_file=log_file
             )
 
             # Should have both handlers
-            has_stream = any(
+            has_stream: bool = any(
                 isinstance(h, logging.StreamHandler)
                 and not isinstance(h, logging.handlers.RotatingFileHandler)
                 for h in logger.handlers
             )
-            has_file = any(
+            has_file: bool = any(
                 isinstance(h, logging.handlers.RotatingFileHandler)
                 for h in logger.handlers
             )
@@ -369,7 +381,7 @@ class TestSetupStderrLogging(unittest.TestCase):
             self.assertTrue(has_stream)
             self.assertTrue(has_file)
         finally:
-            log_path = pathlib.Path(log_file)
+            log_path: pathlib.Path = pathlib.Path(log_file)
             if log_path.exists():
                 log_path.unlink()
 
@@ -377,10 +389,10 @@ class TestSetupStderrLogging(unittest.TestCase):
 class TestDisableChildPropagation(unittest.TestCase):
     """Test cases for disable_child_propagation function."""
 
-    def test_disable_propagation(self):
+    def test_disable_propagation(self) -> None:
         """Test that propagation is disabled for named logger."""
-        logger_name = "test.child.logger"
-        logger = logging.getLogger(logger_name)
+        logger_name: str = "test.child.logger"
+        logger: logging.Logger = logging.getLogger(logger_name)
 
         # Ensure propagation is enabled initially
         logger.propagate = True
@@ -390,9 +402,13 @@ class TestDisableChildPropagation(unittest.TestCase):
         # Propagation should be disabled
         self.assertFalse(logger.propagate)
 
-    def test_multiple_loggers(self):
+    def test_multiple_loggers(self) -> None:
         """Test disabling propagation for multiple loggers."""
-        logger_names = ["test.logger1", "test.logger2", "test.logger3"]
+        logger_names: list[str] = [
+            "test.logger1",
+            "test.logger2",
+            "test.logger3",
+        ]
 
         for name in logger_names:
             logging.getLogger(name).propagate = True

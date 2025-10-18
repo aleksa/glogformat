@@ -6,18 +6,17 @@ import logging
 import os
 import re
 import threading
-import time
 import unittest
 
-from glogformat import GlogFormatter
+import glogformat
 
 
 class TestGlogFormatter(unittest.TestCase):
     """Test cases for GlogFormatter."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         """Set up test fixtures."""
-        self.formatter = GlogFormatter()
+        self.formatter = glogformat.GlogFormatter()
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
 
@@ -28,23 +27,25 @@ class TestGlogFormatter(unittest.TestCase):
         self.logger.addHandler(self.handler)
         self.logger.propagate = False
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         """Clean up test fixtures."""
         self.logger.removeHandler(self.handler)
         self.handler.close()
 
-    def test_basic_format(self):
+    def test_basic_format(self) -> None:
         """Test that formatter produces glog format output."""
         self.logger.info("Test message")
-        output = self.stream.getvalue()
+        output: str = self.stream.getvalue()
 
         # Format: L<YYYYMMDD HH:MM:SS.uuuuuu> <PID> <TID> <filename>:<line>] <message>
-        pattern = r"^I\d{8} \d{2}:\d{2}:\d{2}\.\d{6} \d+ \d+ .+:\d+\] Test message\n$"
+        pattern: str = (
+            r"^I\d{8} \d{2}:\d{2}:\d{2}\.\d{6} \d+ \d+ .+:\d+\] Test message\n$"
+        )
         self.assertRegex(output, pattern)
 
-    def test_log_levels(self):
+    def test_log_levels(self) -> None:
         """Test that all log levels are formatted correctly."""
-        test_cases = [
+        test_cases: list[tuple[int, str]] = [
             (logging.DEBUG, "D"),
             (logging.INFO, "I"),
             (logging.WARNING, "W"),
@@ -59,78 +60,87 @@ class TestGlogFormatter(unittest.TestCase):
                 self.logger.log(
                     level, f"Message at {logging.getLevelName(level)}"
                 )
-                output = self.stream.getvalue()
+                output: str = self.stream.getvalue()
                 self.assertTrue(output.startswith(expected_prefix))
 
-    def test_microsecond_precision(self):
+    def test_microsecond_precision(self) -> None:
         """Test that timestamps include microseconds."""
         self.logger.info("Test microseconds")
-        output = self.stream.getvalue()
+        output: str = self.stream.getvalue()
 
         # Check for microseconds (6 digits after the decimal point)
         self.assertRegex(output, r"\d{2}:\d{2}:\d{2}\.\d{6}")
 
-    def test_process_and_thread_ids(self):
+    def test_process_and_thread_ids(self) -> None:
         """Test that process and thread IDs are included."""
         self.logger.info("Test IDs")
-        output = self.stream.getvalue()
+        output: str = self.stream.getvalue()
 
         # Extract PID and TID from output
-        match = re.search(
+        match: re.Match[str] | None = re.search(
             r"I\d{8} \d{2}:\d{2}:\d{2}\.\d{6} (\d+) (\d+)", output
         )
         self.assertIsNotNone(match)
 
-        pid = int(match.group(1))
-        tid = int(match.group(2))
+        pid: int = int(match.group(1))
+        tid: int = int(match.group(2))
 
         self.assertEqual(pid, os.getpid())
         self.assertGreater(tid, 0)
 
-    def test_filename_and_lineno(self):
+    def test_filename_and_lineno(self) -> None:
         """Test that filename and line number are included."""
         self.logger.info("Test location")
-        output = self.stream.getvalue()
+        output: str = self.stream.getvalue()
 
         # Should contain filename:lineno
         self.assertRegex(output, r"test_glogformatter\.py:\d+\]")
 
-    def test_multiline_message(self):
+    def test_multiline_message(self) -> None:
         """Test formatting of multiline messages."""
-        message = "Line 1\nLine 2\nLine 3"
+        message: str = "Line 1\nLine 2\nLine 3"
         self.logger.info(message)
-        output = self.stream.getvalue()
+        output: str = self.stream.getvalue()
 
         # The message should be preserved
         self.assertIn("Line 1\nLine 2\nLine 3", output)
 
-    def test_utc_timestamps(self):
+    def test_utc_timestamps(self) -> None:
         """Test UTC timestamp mode."""
-        utc_formatter = GlogFormatter(use_utc=True)
+        utc_formatter: glogformat.GlogFormatter = glogformat.GlogFormatter(
+            use_utc=True
+        )
         self.handler.setFormatter(utc_formatter)
 
-        before_utc = datetime.datetime.now(datetime.timezone.utc)
+        before_utc: datetime.datetime = datetime.datetime.now(
+            datetime.timezone.utc
+        )
         self.logger.info("UTC test")
-        after_utc = datetime.datetime.now(datetime.timezone.utc)
+        after_utc: datetime.datetime = datetime.datetime.now(
+            datetime.timezone.utc
+        )
 
-        output = self.stream.getvalue()
+        output: str = self.stream.getvalue()
 
         # Extract timestamp
-        match = re.search(r"I(\d{8}) (\d{2}):(\d{2}):(\d{2})\.(\d{6})", output)
+        match: re.Match[str] | None = re.search(
+            r"I(\d{8}) (\d{2}):(\d{2}):(\d{2})\.(\d{6})", output
+        )
         self.assertIsNotNone(match)
+        assert match is not None  # Type narrowing for mypy
 
-        date_str = match.group(1)
-        hour = int(match.group(2))
-        minute = int(match.group(3))
-        second = int(match.group(4))
+        date_str: str = match.group(1)
+        hour: int = int(match.group(2))
+        minute: int = int(match.group(3))
+        second: int = int(match.group(4))
 
         # Parse date
-        year = int(date_str[:4])
-        month = int(date_str[4:6])
-        day = int(date_str[6:8])
+        year: int = int(date_str[:4])
+        month: int = int(date_str[4:6])
+        day: int = int(date_str[6:8])
 
         # Verify it's close to UTC time
-        log_dt = datetime.datetime(
+        log_dt: datetime.datetime = datetime.datetime(
             year,
             month,
             day,
@@ -146,29 +156,36 @@ class TestGlogFormatter(unittest.TestCase):
             after_utc.replace(microsecond=0) + datetime.timedelta(seconds=1),
         )
 
-    def test_local_timestamps(self):
+    def test_local_timestamps(self) -> None:
         """Test local timestamp mode (default)."""
-        local_formatter = GlogFormatter(use_utc=False)
+        local_formatter: glogformat.GlogFormatter = glogformat.GlogFormatter(
+            use_utc=False
+        )
         self.handler.setFormatter(local_formatter)
 
-        before_local = datetime.datetime.now()
+        before_local: datetime.datetime = datetime.datetime.now()
         self.logger.info("Local test")
-        after_local = datetime.datetime.now()
+        after_local: datetime.datetime = datetime.datetime.now()
 
-        output = self.stream.getvalue()
+        output: str = self.stream.getvalue()
 
         # Extract timestamp
-        match = re.search(r"I(\d{8}) (\d{2}):(\d{2}):(\d{2})\.(\d{6})", output)
+        match: re.Match[str] | None = re.search(
+            r"I(\d{8}) (\d{2}):(\d{2}):(\d{2})\.(\d{6})", output
+        )
         self.assertIsNotNone(match)
+        assert match is not None  # Type narrowing for mypy
 
-        date_str = match.group(1)
-        hour = int(match.group(2))
-        minute = int(match.group(3))
-        second = int(match.group(4))
-        microsecond = int(match.group(5))
+        date_str: str = match.group(1)
+        hour: int = int(match.group(2))
+        minute: int = int(match.group(3))
+        second: int = int(match.group(4))
+        microsecond: int = int(match.group(5))
 
         # Parse the logged timestamp
-        log_dt = datetime.datetime.strptime(date_str, "%Y%m%d").replace(
+        log_dt: datetime.datetime = datetime.datetime.strptime(
+            date_str, "%Y%m%d"
+        ).replace(
             hour=hour, minute=minute, second=second, microsecond=microsecond
         )
 
@@ -180,10 +197,10 @@ class TestGlogFormatter(unittest.TestCase):
             log_dt, after_local + datetime.timedelta(seconds=1)
         )
 
-    def test_invalid_timestamp_warning(self):
+    def test_invalid_timestamp_warning(self) -> None:
         """Test handling of invalid timestamps."""
         # Create a log record with an invalid timestamp
-        record = logging.LogRecord(
+        record: logging.LogRecord = logging.LogRecord(
             name=__name__,
             level=logging.INFO,
             pathname=__file__,
@@ -196,29 +213,27 @@ class TestGlogFormatter(unittest.TestCase):
         record.created = 1e20
 
         # Should not raise exception, should return fallback
-        result = self.formatter.format(record)
+        result: str = self.formatter.format(record)
         self.assertIsNotNone(result)
         self.assertIn("Test", result)
 
-    def test_thread_safety_of_warnings(self):
+    def test_thread_safety_of_warnings(self) -> None:
         """Test that timestamp warnings are shown only once across threads."""
-        warning_count = [0]
+        warning_count: list[int] = [0]
         original_stderr_write = __import__("glogformat")._safe_stderr_write
 
-        def mock_stderr_write(msg):
+        def mock_stderr_write(msg: str) -> None:
             if "Warning: GlogFormatter failed" in msg:
                 warning_count[0] += 1
 
         # Monkey patch
-        import glogformat
-
         glogformat._safe_stderr_write = mock_stderr_write
 
         try:
-            formatter = GlogFormatter()
+            formatter: glogformat.GlogFormatter = glogformat.GlogFormatter()
 
-            def log_invalid():
-                record = logging.LogRecord(
+            def log_invalid() -> None:
+                record: logging.LogRecord = logging.LogRecord(
                     name=__name__,
                     level=logging.INFO,
                     pathname=__file__,
@@ -231,7 +246,9 @@ class TestGlogFormatter(unittest.TestCase):
                 formatter.format(record)
 
             # Create multiple threads that all trigger the warning
-            threads = [threading.Thread(target=log_invalid) for _ in range(10)]
+            threads: list[threading.Thread] = [
+                threading.Thread(target=log_invalid) for _ in range(10)
+            ]
             for t in threads:
                 t.start()
             for t in threads:
@@ -242,28 +259,32 @@ class TestGlogFormatter(unittest.TestCase):
         finally:
             glogformat._safe_stderr_write = original_stderr_write
 
-    def test_custom_format_not_overridden(self):
+    def test_custom_format_not_overridden(self) -> None:
         """Test that custom format can be provided."""
-        custom_formatter = GlogFormatter(fmt="CUSTOM: %(message)s")
+        custom_formatter: glogformat.GlogFormatter = glogformat.GlogFormatter(
+            fmt="CUSTOM: %(message)s"
+        )
         self.handler.setFormatter(custom_formatter)
 
         self.logger.info("Test custom")
-        output = self.stream.getvalue()
+        output: str = self.stream.getvalue()
 
         self.assertIn("CUSTOM: Test custom", output)
 
-    def test_message_with_special_characters(self):
+    def test_message_with_special_characters(self) -> None:
         """Test messages with special characters."""
-        special_chars = "Test with special: !@#$%^&*()_+-=[]{}|;':\",./<>?"
+        special_chars: str = (
+            "Test with special: !@#$%^&*()_+-=[]{}|;':\",./<>?"
+        )
         self.logger.info(special_chars)
-        output = self.stream.getvalue()
+        output: str = self.stream.getvalue()
 
         self.assertIn(special_chars, output)
 
-    def test_empty_message(self):
+    def test_empty_message(self) -> None:
         """Test logging empty message."""
         self.logger.info("")
-        output = self.stream.getvalue()
+        output: str = self.stream.getvalue()
 
         # Should still have the glog prefix and structure
         self.assertRegex(output, r"^I\d{8} \d{2}:\d{2}:\d{2}\.\d{6}")

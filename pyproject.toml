@@ -87,7 +87,7 @@ disable = [
 ]
 
 [tool.pylint.basic]
-good-names = ["i", "j", "k", "ex", "f", "e", "dt", "s", "h", "t", "tz"]
+good-names = ["i", "j", "k", "e", "_"]
 
 [tool.pylint.design]
 max-attributes = 10
