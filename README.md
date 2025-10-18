@@ -33,7 +33,7 @@ curl -O https://raw.githubusercontent.com/aleksa/glogformat/main/demo_app.py
 python demo_app.py
 
 # Or redirect to see plain text (no ANSI codes)
-python demo_app.py > output.log
+python demo_app.py &> output.log
 cat output.log
 ```
 

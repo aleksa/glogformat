@@ -81,6 +81,7 @@ class TestGlogFormatter(unittest.TestCase):
             r"I\d{8} \d{2}:\d{2}:\d{2}\.\d{6} (\d+) (\d+)", output
         )
         self.assertIsNotNone(match)
+        assert match is not None  # Type narrowing for mypy
 
         pid: int = int(match.group(1))
         tid: int = int(match.group(2))

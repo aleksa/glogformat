@@ -123,6 +123,7 @@ class TestSetupStderrLogging(unittest.TestCase):
                     break
 
             self.assertIsNotNone(stream_handler)
+            assert stream_handler is not None  # Type narrowing for mypy
             self.assertIsInstance(stream_handler.formatter, ColorGlogFormatter)
 
     def test_color_disabled_for_non_tty(self) -> None:
@@ -143,6 +144,7 @@ class TestSetupStderrLogging(unittest.TestCase):
                     break
 
             self.assertIsNotNone(stream_handler)
+            assert stream_handler is not None  # Type narrowing for mypy
             self.assertIsInstance(stream_handler.formatter, GlogFormatter)
             self.assertNotIsInstance(
                 stream_handler.formatter, ColorGlogFormatter
@@ -170,6 +172,9 @@ class TestSetupStderrLogging(unittest.TestCase):
                             break
 
                     # Color should be enabled despite color=False
+                    assert (
+                        stream_handler is not None
+                    )  # Type narrowing for mypy
                     self.assertIsInstance(
                         stream_handler.formatter, ColorGlogFormatter
                     )
@@ -199,6 +204,9 @@ class TestSetupStderrLogging(unittest.TestCase):
                             break
 
                     # Color should be disabled despite color=True
+                    assert (
+                        stream_handler is not None
+                    )  # Type narrowing for mypy
                     self.assertNotIsInstance(
                         stream_handler.formatter, ColorGlogFormatter
                     )
@@ -272,6 +280,7 @@ class TestSetupStderrLogging(unittest.TestCase):
                     break
 
             self.assertIsNotNone(file_handler)
+            assert file_handler is not None  # Type narrowing for mypy
             self.assertEqual(file_handler.maxBytes, 5000)
             self.assertEqual(file_handler.backupCount, 7)
         finally:
@@ -344,6 +353,7 @@ class TestSetupStderrLogging(unittest.TestCase):
         # Check that handlers have UTC formatters
         for handler in logger.handlers:
             if hasattr(handler.formatter, "use_utc"):
+                assert handler.formatter is not None  # Type narrowing for mypy
                 self.assertTrue(handler.formatter.use_utc)
 
     def test_local_timestamps(self) -> None:
@@ -355,6 +365,7 @@ class TestSetupStderrLogging(unittest.TestCase):
         # Check that handlers have local time formatters
         for handler in logger.handlers:
             if hasattr(handler.formatter, "use_utc"):
+                assert handler.formatter is not None  # Type narrowing for mypy
                 self.assertFalse(handler.formatter.use_utc)
 
     def test_both_stderr_and_file_logging(self) -> None:

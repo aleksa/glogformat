@@ -22,7 +22,7 @@ lint:
 	@echo "Running pylint..."
 	pylint glogformat/ tests/
 	@echo "Running mypy..."
-	mypy glogformat/
+	mypy glogformat/ tests/
 	@echo "✓ Linting complete"
 
 test:
