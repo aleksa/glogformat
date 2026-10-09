@@ -7,9 +7,9 @@ This script demonstrates the glog-style logging formatter with:
 - Automatic color detection (colors in terminal, plain text when redirected)
 
 Usage:
-    python demo_app.py              # Run with colored output
-    python demo_app.py > output.log # Redirect to file (no ANSI codes)
-    python demo_app.py --version    # Show version
+    python demo_app.py                # Run with colored output
+    python demo_app.py 2> output.log  # Redirect to file (no ANSI codes)
+    python demo_app.py --version      # Show version
 """
 
 import argparse
@@ -17,8 +17,6 @@ import logging
 
 from glogformat import setup_stderr_logging
 
-# Set up logging before any other imports
-setup_stderr_logging(logging.DEBUG)
 log = logging.getLogger(__name__)
 
 
@@ -38,7 +36,9 @@ def parse_arguments() -> argparse.Namespace:
 
 def main() -> None:
     """Main function."""
-    args = parse_arguments()
+    # Configure logging once at startup, not at import time.
+    setup_stderr_logging(logging.DEBUG)
+    parse_arguments()
 
     # Nice logging in glog format with color!
     log.info("Starting!")
@@ -47,8 +47,9 @@ def main() -> None:
     log.warning("Don't do it!")
     try:
         result = 1 // 0
+        log.info("Result: %d", result)
     except ZeroDivisionError:
-        log.exception("You tried to divide by 0!", exc_info=True)
+        log.exception("You tried to divide by 0!")
         log.critical("Exiting soon!")
 
     log.info("Done!")

@@ -1,6 +1,6 @@
 [project]
 name = "glogformat"
-version = "0.1.0"
+version = "0.2.0"
 description = "A Python logging formatter implementing Google's glog format with microsecond precision and terminal color support."
 authors = [{name = "Aleksandar Veselinovic", email = "aleksa@users.noreply.github.com"}]
 readme = "README.md"
@@ -15,6 +15,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
+    "Typing :: Typed",
 ]
 requires-python = ">=3.10"
 
@@ -24,7 +25,7 @@ test = [
     "pytest-cov>=4.0",
 ]
 dev = [
-    "black>=24.0",
+    "black>=25.9",
     "isort>=5.13",
     "pylint>=3.0",
     "mypy>=1.11",
@@ -36,7 +37,7 @@ Homepage = "https://github.com/aleksa/glogformat"
 Documentation = "https://github.com/aleksa/glogformat"
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]

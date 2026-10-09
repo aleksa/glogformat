@@ -35,7 +35,7 @@ jobs:
         pylint glogformat/ tests/
 
     - name: Run type checker
-      run: mypy glogformat/
+      run: mypy glogformat/ tests/
 
     - name: Run tests with coverage
       run: pytest tests/ -v --cov=glogformat --cov-report=term-missing --cov-report=xml

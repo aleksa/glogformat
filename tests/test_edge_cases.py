@@ -4,6 +4,7 @@ import contextlib
 import glob
 import io
 import logging
+import logging.handlers
 import pathlib
 import sys
 import tempfile
@@ -13,9 +14,9 @@ from unittest.mock import Mock
 from unittest.mock import patch
 
 import glogformat
-from glogformat import RotationErrorFilter
 from glogformat import _safe_stderr_write
 from glogformat import setup_stderr_logging
+from tests.helpers import isolate_logging_env
 
 
 class TestSafeStderrWrite(unittest.TestCase):
@@ -67,121 +68,155 @@ class TestSafeStderrWrite(unittest.TestCase):
             _safe_stderr_write("Test message\n")
 
 
-class TestRotationErrorFilter(unittest.TestCase):
-    """Test cases for RotationErrorFilter."""
+class TestRotatingFileHandlerWarnings(unittest.TestCase):
+    """Test cases for rotating file handler warnings."""
 
-    def test_first_error_shows_warning(self) -> None:
-        """Test that first error shows warning."""
-        filter_obj: RotationErrorFilter = RotationErrorFilter()
+    def setUp(self) -> None:
+        """Set up test fixtures."""
+        isolate_logging_env(self)
 
-        # Create a log record with exception
-        record: logging.LogRecord = logging.LogRecord(
+    def test_application_exception_does_not_warn_about_rotation(self) -> None:
+        """Test that logger.exception doesn't look like rotation failure."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".log"
+        ) as fh:
+            log_file: str = fh.name
+
+        original_handlers = logging.root.handlers[:]
+        original_level = logging.root.level
+        try:
+            setup_stderr_logging(logging.INFO, log_file=log_file)
+            logger = logging.getLogger("test_exception_warning")
+
+            with patch("glogformat._safe_stderr_write") as mock_write:
+                try:
+                    raise ValueError("Test error")
+                except ValueError:
+                    logger.exception("Application exception")
+
+                warning_text = str(mock_write.call_args_list)
+                self.assertNotIn("Log rotation failed", warning_text)
+                self.assertNotIn("Log file handler failed", warning_text)
+        finally:
+            for handler in logging.root.handlers[:]:
+                if handler not in original_handlers:
+                    logging.root.removeHandler(handler)
+                    handler.close()
+            logging.root.handlers = original_handlers
+            logging.root.level = original_level
+            with contextlib.suppress(FileNotFoundError, OSError):
+                pathlib.Path(log_file).unlink()
+
+    def test_handler_error_warning_is_once(self) -> None:
+        """Test that handler write errors emit one warning."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".log"
+        ) as fh:
+            log_file: str = fh.name
+
+        handler = glogformat._WarningRotatingFileHandler(log_file)
+        record = logging.LogRecord(
             name="test",
             level=logging.ERROR,
             pathname=__file__,
             lineno=1,
-            msg="Rotation failed",
-            args=(),
-            exc_info=(ValueError, ValueError("Test error"), None),
-        )
-
-        with patch("glogformat._safe_stderr_write") as mock_write:
-            result: bool = filter_obj.filter(record)
-
-            # Should return True to allow the record
-            self.assertTrue(result)
-            # Should have written warning
-            mock_write.assert_called_once()
-            call_args: str = str(mock_write.call_args)
-            self.assertIn("Warning: Log rotation failed", call_args)
-
-    def test_subsequent_errors_no_warning(self) -> None:
-        """Test that subsequent errors don't show warning."""
-        filter_obj: RotationErrorFilter = RotationErrorFilter()
-
-        # Create log records with exceptions
-        record1: logging.LogRecord = logging.LogRecord(
-            name="test",
-            level=logging.ERROR,
-            pathname=__file__,
-            lineno=1,
-            msg="First error",
-            args=(),
-            exc_info=(ValueError, ValueError("Test error 1"), None),
-        )
-        record2: logging.LogRecord = logging.LogRecord(
-            name="test",
-            level=logging.ERROR,
-            pathname=__file__,
-            lineno=1,
-            msg="Second error",
-            args=(),
-            exc_info=(ValueError, ValueError("Test error 2"), None),
-        )
-
-        with patch("glogformat._safe_stderr_write") as mock_write:
-            # First record should trigger warning
-            filter_obj.filter(record1)
-            self.assertEqual(mock_write.call_count, 1)
-
-            # Second record should not trigger warning
-            filter_obj.filter(record2)
-            self.assertEqual(mock_write.call_count, 1)  # Still 1
-
-    def test_record_without_exception(self) -> None:
-        """Test filtering record without exception info."""
-        filter_obj: RotationErrorFilter = RotationErrorFilter()
-
-        # Create a log record without exception
-        record: logging.LogRecord = logging.LogRecord(
-            name="test",
-            level=logging.INFO,
-            pathname=__file__,
-            lineno=1,
-            msg="Normal message",
+            msg="File write failed",
             args=(),
             exc_info=None,
         )
 
-        with patch("glogformat._safe_stderr_write") as mock_write:
-            result: bool = filter_obj.filter(record)
+        try:
+            with patch("glogformat._safe_stderr_write") as mock_write:
+                with patch.object(
+                    logging.handlers.RotatingFileHandler,
+                    "handleError",
+                    return_value=None,
+                ):
+                    for _ in range(2):
+                        try:
+                            raise OSError("No space left on device")
+                        except OSError:
+                            handler.handleError(record)
 
-            # Should return True to allow the record
-            self.assertTrue(result)
-            # Should not write warning
-            mock_write.assert_not_called()
+                self.assertEqual(mock_write.call_count, 1)
+                call_args: str = str(mock_write.call_args)
+                self.assertIn("Warning: Log file handler failed", call_args)
+                self.assertIn("No space left on device", call_args)
+        finally:
+            handler.close()
+            with contextlib.suppress(FileNotFoundError, OSError):
+                pathlib.Path(log_file).unlink()
 
-    def test_filter_always_returns_true(self) -> None:
-        """Test that filter always returns True to allow records through."""
-        filter_obj: RotationErrorFilter = RotationErrorFilter()
+    def test_write_failure_warns(self) -> None:
+        """Test that a failing file write emits the warning end to end."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".log"
+        ) as fh:
+            log_file: str = fh.name
 
-        # Test various scenarios
-        test_cases: list[logging.LogRecord] = [
-            # With exception
-            logging.LogRecord(
-                name="test",
-                level=logging.ERROR,
-                pathname=__file__,
-                lineno=1,
-                msg="Error",
-                args=(),
-                exc_info=(ValueError, ValueError("Error"), None),
-            ),
-            # Without exception
-            logging.LogRecord(
-                name="test",
-                level=logging.INFO,
-                pathname=__file__,
-                lineno=1,
-                msg="Info",
-                args=(),
-                exc_info=None,
-            ),
-        ]
+        handler = glogformat._WarningRotatingFileHandler(log_file)
+        logger = logging.getLogger("test_write_failure_warns")
+        logger.addHandler(handler)
+        logger.propagate = False
+        failing_stream: Mock = Mock()
+        failing_stream.write.side_effect = OSError("No space left on device")
+        original_stream = handler.stream
+        handler.stream = failing_stream
 
-        for record in test_cases:
-            result: bool = filter_obj.filter(record)
-            self.assertTrue(result)
+        try:
+            with patch("glogformat._safe_stderr_write") as mock_write:
+                with patch.object(logging, "raiseExceptions", False):
+                    logger.error("First")
+                    logger.error("Second")
+
+                self.assertEqual(mock_write.call_count, 1)
+                self.assertIn(
+                    "No space left on device", str(mock_write.call_args)
+                )
+        finally:
+            handler.stream = original_stream
+            glogformat._close_handlers(logger)
+            logger.propagate = True
+            with contextlib.suppress(FileNotFoundError, OSError):
+                pathlib.Path(log_file).unlink()
+
+    def test_format_error_does_not_consume_warning(self) -> None:
+        """Test that a caller's bad format args don't use up the warning.
+
+        Regression test: handleError used to call record.getMessage(), which
+        re-raised the formatting error before the warning was written, while
+        still marking the one-shot warning as shown.
+        """
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".log"
+        ) as fh:
+            log_file: str = fh.name
+
+        handler = glogformat._WarningRotatingFileHandler(log_file)
+        logger = logging.getLogger("test_format_error_warning")
+        logger.addHandler(handler)
+        logger.propagate = False
+        original_stream = handler.stream
+
+        try:
+            with patch("glogformat._safe_stderr_write") as mock_write:
+                with patch.object(logging, "raiseExceptions", False):
+                    logger.info("count=%d", "not-a-number")
+                    mock_write.assert_not_called()
+
+                    failing_stream: Mock = Mock()
+                    failing_stream.write.side_effect = OSError("Disk full")
+                    handler.stream = failing_stream
+                    logger.error("Real failure")
+
+                self.assertEqual(mock_write.call_count, 1)
+                self.assertIn("Disk full", str(mock_write.call_args))
+        finally:
+            handler.stream = original_stream
+            glogformat._close_handlers(logger)
+            logger.propagate = True
+            with contextlib.suppress(FileNotFoundError, OSError):
+                pathlib.Path(log_file).unlink()
 
 
 class TestEdgeCasesIntegration(unittest.TestCase):
@@ -189,11 +224,18 @@ class TestEdgeCasesIntegration(unittest.TestCase):
 
     def setUp(self) -> None:
         """Set up test fixtures."""
+        isolate_logging_env(self)
         self.original_handlers = logging.root.handlers[:]
         self.original_level = logging.root.level
 
     def tearDown(self) -> None:
         """Clean up test fixtures."""
+        new_handlers: list[logging.Handler] = [
+            handler
+            for handler in logging.root.handlers
+            if handler not in self.original_handlers
+        ]
+        glogformat._close_handlers(logging.root, new_handlers)
         logging.root.handlers = self.original_handlers
         logging.root.level = self.original_level
 

@@ -6,7 +6,9 @@ import logging
 import os
 import re
 import threading
+import time
 import unittest
+from unittest.mock import patch
 
 import glogformat
 
@@ -70,6 +72,50 @@ class TestGlogFormatter(unittest.TestCase):
 
         # Check for microseconds (6 digits after the decimal point)
         self.assertRegex(output, r"\d{2}:\d{2}:\d{2}\.\d{6}")
+
+    def test_format_time_without_datefmt_uses_default_formatter(self) -> None:
+        """Test formatTime fallback when no datefmt is provided."""
+        record: logging.LogRecord = logging.LogRecord(
+            name=__name__,
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=1,
+            msg="Test",
+            args=(),
+            exc_info=None,
+        )
+
+        result: str = self.formatter.formatTime(record, datefmt=None)
+
+        self.assertRegex(result, r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}")
+
+    def test_format_time_without_datefmt_respects_use_utc(self) -> None:
+        """Test that the default-formatter fallback still uses UTC."""
+        # Pin a non-UTC zone so the test also fails on a UTC CI runner.
+        env_patcher = patch.dict(os.environ, {"TZ": "America/Los_Angeles"})
+        env_patcher.start()
+        self.addCleanup(time.tzset)
+        self.addCleanup(env_patcher.stop)
+        time.tzset()
+
+        record: logging.LogRecord = logging.LogRecord(
+            name=__name__,
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=1,
+            msg="Test",
+            args=(),
+            exc_info=None,
+        )
+        record.created = 0.0
+
+        formatter = glogformat.GlogFormatter(use_utc=True)
+
+        self.assertTrue(
+            formatter.formatTime(record, datefmt=None).startswith(
+                "1970-01-01 00:00:00"
+            )
+        )
 
     def test_process_and_thread_ids(self) -> None:
         """Test that process and thread IDs are included."""

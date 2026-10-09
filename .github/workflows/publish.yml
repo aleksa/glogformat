@@ -32,7 +32,7 @@ jobs:
         pylint glogformat/ tests/
 
     - name: Run type checker
-      run: mypy glogformat/
+      run: mypy glogformat/ tests/
 
     - name: Run tests
       run: pytest tests/ -v --cov=glogformat
